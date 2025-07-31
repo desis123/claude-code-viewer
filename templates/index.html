@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Projects - Claude Code Viewer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="bi bi-folder me-2"></i>
+                Your Projects
+            </h2>
+            <div class="text-muted">
+                {{ projects|length }} project{{ 's' if projects|length != 1 else '' }} found
+            </div>
+        </div>
+
+        {% if projects %}
+            <div class="row">
+                {% for project in projects %}
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card project-card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="bi bi-folder2-open me-2"></i>
+                                    {{ project.display_name }}
+                                </h5>
+                                
+                                <p class="card-text text-muted">
+                                    <small>{{ project.name }}</small>
+                                </p>
+                                
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="session-stats">
+                                        <span class="badge badge-primary">
+                                            <i class="bi bi-chat-dots me-1"></i>
+                                            {{ project.session_count }} session{{ 's' if project.session_count != 1 else '' }}
+                                        </span>
+                                    </div>
+                                    
+                                    <a href="/project/{{ project.name }}" class="btn btn-primary btn-sm">
+                                        <i class="bi bi-arrow-right me-1"></i>
+                                        View Sessions
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="bi bi-folder-x" style="font-size: 4rem; color: var(--secondary-color);"></i>
+                </div>
+                <h4 class="text-muted">No Projects Found</h4>
+                <p class="text-muted">
+                    Make sure Claude Code has been used and projects exist in:<br>
+                    <code>~/.claude/projects/</code>
+                </p>
+                <a href="/health" class="btn btn-outline-primary">
+                    <i class="bi bi-heart-pulse me-1"></i>
+                    Check System Status
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Quick Stats -->
+{% if projects %}
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-bar-chart me-2"></i>
+                    Quick Statistics
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="h4 text-primary">{{ projects|length }}</div>
+                        <small class="text-muted">Total Projects</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="h4 text-success">{{ projects|sum(attribute='session_count') }}</div>
+                        <small class="text-muted">Total Sessions</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="h4 text-warning">
+                            {{ (projects|sum(attribute='session_count') / projects|length)|round(1) if projects|length > 0 else 0 }}
+                        </div>
+                        <small class="text-muted">Avg Sessions/Project</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="h4 text-info">
+                            <i class="bi bi-hdd"></i>
+                        </div>
+                        <small class="text-muted">Storage Location</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

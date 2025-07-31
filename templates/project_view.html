@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}{{ display_name }} - Claude Code Viewer{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="/">
+                <i class="bi bi-house me-1"></i>
+                Projects
+            </a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">
+            {{ display_name }}
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="bi bi-folder2-open me-2"></i>
+                {{ display_name }}
+            </h2>
+            <div class="text-muted">
+                {{ sessions|length }} session{{ 's' if sessions|length != 1 else '' }}
+            </div>
+        </div>
+
+        {% if sessions %}
+            <div class="row">
+                {% for session in sessions %}
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card session-card h-100">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="bi bi-chat-text me-2"></i>
+                                    Session {{ session.id[:8] }}...
+                                </h6>
+                                
+                                <div class="session-meta">
+                                    <div class="session-stats">
+                                        <div class="stat-item">
+                                            <i class="bi bi-chat-dots"></i>
+                                            <span>{{ session.message_count }} messages</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <i class="bi bi-hdd"></i>
+                                            <span>
+                                                <script>
+                                                    document.write(window.formatFileSize({{ session.size }}));
+                                                </script>
+                                            </span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <i class="bi bi-clock"></i>
+                                            <span>
+                                                <script>
+                                                    document.write(window.formatRelativeTime("{{ session.modified }}"));
+                                                </script>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between align-items-center mt-3">
+                                    <small class="text-muted">
+                                        {{ session.filename }}
+                                    </small>
+                                    
+                                    <a href="/conversation/{{ project_name }}/{{ session.id }}" class="btn btn-primary btn-sm">
+                                        <i class="bi bi-eye me-1"></i>
+                                        View
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="bi bi-chat-x" style="font-size: 4rem; color: var(--secondary-color);"></i>
+                </div>
+                <h4 class="text-muted">No Sessions Found</h4>
+                <p class="text-muted">
+                    This project doesn't have any conversation sessions yet.
+                </p>
+                <a href="/" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-left me-1"></i>
+                    Back to Projects
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Session Timeline -->
+{% if sessions|length > 1 %}
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Session Activity Timeline
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    {% for session in sessions[:10] %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>Session {{ session.id[:8] }}...</strong>
+                                        <div class="text-muted small">
+                                            {{ session.message_count }} messages
+                                        </div>
+                                    </div>
+                                    <div class="text-muted small">
+                                        <script>
+                                            document.write(window.formatRelativeTime("{{ session.modified }}"));
+                                        </script>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                {% if sessions|length > 10 %}
+                    <div class="text-center mt-3">
+                        <small class="text-muted">
+                            Showing 10 most recent sessions of {{ sessions|length }} total
+                        </small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 2rem;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 0.75rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--primary-color);
+    opacity: 0.3;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -1.75rem;
+    top: 0.25rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    background: var(--primary-color);
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 0 2px var(--primary-color);
+}
+
+.timeline-content {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+</style>
+{% endblock %}

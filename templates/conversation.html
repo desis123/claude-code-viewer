@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block title %}Conversation {{ session_id[:8] }} - {{ display_name }}{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="/">
+                <i class="bi bi-house me-1"></i>
+                Projects
+            </a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="/project/{{ project_name }}">
+                {{ display_name }}
+            </a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">
+            Session {{ session_id[:8] }}...
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<!-- Search and Filters -->
+<div class="search-filters">
+    <form id="search-form" method="get">
+        <div class="filter-section">
+            <div class="filter-group">
+                <label for="search">Search Messages</label>
+                <input 
+                    type="text" 
+                    id="search" 
+                    name="search" 
+                    class="search-input" 
+                    placeholder="Search in conversation content..."
+                    value="{{ search or '' }}"
+                >
+            </div>
+            
+            <div class="filter-group">
+                <label for="message_type">Message Type</label>
+                <select id="message_type" name="message_type" class="filter-select auto-filter">
+                    <option value="">All Messages</option>
+                    <option value="user" {{ 'selected' if message_type == 'user' else '' }}>User Messages</option>
+                    <option value="assistant" {{ 'selected' if message_type == 'assistant' else '' }}>Assistant Messages</option>
+                    <option value="summary" {{ 'selected' if message_type == 'summary' else '' }}>Summaries</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="per_page">Messages per Page</label>
+                <select id="per_page" name="per_page" class="filter-select auto-filter">
+                    <option value="25">25</option>
+                    <option value="50" {{ 'selected' if conversation.per_page == 50 else '' }}>50</option>
+                    <option value="100" {{ 'selected' if conversation.per_page == 100 else '' }}>100</option>
+                </select>
+            </div>
+            
+            <div class="filter-actions">
+                <button type="submit" class="search-btn">
+                    <i class="bi bi-search me-1"></i>
+                    Search
+                </button>
+                <button type="button" id="clear-filters" class="clear-btn">
+                    <i class="bi bi-x-circle me-1"></i>
+                    Clear
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Results Info -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3>
+            <i class="bi bi-chat-text me-2"></i>
+            Conversation Messages
+        </h3>
+        {% if search %}
+            <p class="text-muted mb-0">
+                <i class="bi bi-search me-1"></i>
+                Search results for: <strong>"{{ search }}"</strong>
+            </p>
+        {% endif %}
+    </div>
+    
+    <div class="text-muted">
+        Showing {{ conversation.messages|length }} of {{ conversation.total }} messages
+    </div>
+</div>
+
+<!-- Messages -->
+{% if conversation.messages %}
+    <div class="messages-container">
+        {% for message in conversation.messages %}
+            <div class="message">
+                <div class="message-header">
+                    <div class="message-role {{ message.role or message.type }}">
+                        {% if message.role == 'user' or message.display_type == 'User' %}
+                            <i class="bi bi-person-circle"></i>
+                            <span>User</span>
+                        {% elif message.role == 'assistant' or message.display_type == 'Assistant' %}
+                            <i class="bi bi-cpu"></i>
+                            <span>Claude</span>
+                        {% elif message.type == 'summary' %}
+                            <i class="bi bi-journal-text"></i>
+                            <span>Summary</span>
+                        {% else %}
+                            <i class="bi bi-gear"></i>
+                            <span>{{ message.display_type }}</span>
+                        {% endif %}
+                        
+                        {% if message.has_code %}
+                            <span class="badge badge-code ms-2">
+                                <i class="bi bi-code-slash"></i>
+                                Code
+                            </span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="message-meta">
+                        <small>
+                            Line {{ message.line_number }}
+                            {% if message.timestamp %}
+                                • {{ message.timestamp }}
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="message-content">
+                    {% if message.rendered_content %}
+                        {{ message.rendered_content | safe }}
+                    {% else %}
+                        <pre>{{ message.content }}</pre>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <i class="bi bi-chat-square-x" style="font-size: 4rem; color: var(--secondary-color);"></i>
+        </div>
+        <h4 class="text-muted">No Messages Found</h4>
+        <p class="text-muted">
+            {% if search or message_type %}
+                Try adjusting your search filters or clear them to see all messages.
+            {% else %}
+                This conversation appears to be empty or couldn't be loaded.
+            {% endif %}
+        </p>
+        {% if search or message_type %}
+            <button type="button" id="clear-filters" class="btn btn-outline-primary">
+                <i class="bi bi-x-circle me-1"></i>
+                Clear Filters
+            </button>
+        {% endif %}
+    </div>
+{% endif %}
+
+<!-- Pagination -->
+{% if conversation.total_pages > 1 %}
+    <div class="pagination-container">
+        <div class="pagination-info">
+            Page {{ conversation.page }} of {{ conversation.total_pages }} 
+            ({{ conversation.total }} total messages)
+        </div>
+        
+        <nav aria-label="Conversation pagination">
+            <ul class="pagination mb-0">
+                <!-- Previous page -->
+                {% if conversation.page > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ conversation.page - 1 }}{% if search %}&search={{ search }}{% endif %}{% if message_type %}&message_type={{ message_type }}{% endif %}{% if conversation.per_page != 50 %}&per_page={{ conversation.per_page }}{% endif %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="bi bi-chevron-left"></i>
+                        </span>
+                    </li>
+                {% endif %}
+                
+                <!-- Page numbers -->
+                {% set start_page = [1, conversation.page - 2]|max %}
+                {% set end_page = [conversation.total_pages, conversation.page + 2]|min %}
+                
+                {% if start_page > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if message_type %}&message_type={{ message_type }}{% endif %}{% if conversation.per_page != 50 %}&per_page={{ conversation.per_page }}{% endif %}">1</a>
+                    </li>
+                    {% if start_page > 2 %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                    {% endif %}
+                {% endif %}
+                
+                {% for page_num in range(start_page, end_page + 1) %}
+                    {% if page_num == conversation.page %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_num }}</span>
+                        </li>
+                    {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_num }}{% if search %}&search={{ search }}{% endif %}{% if message_type %}&message_type={{ message_type }}{% endif %}{% if conversation.per_page != 50 %}&per_page={{ conversation.per_page }}{% endif %}">{{ page_num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if end_page < conversation.total_pages %}
+                    {% if end_page < conversation.total_pages - 1 %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                    {% endif %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ conversation.total_pages }}{% if search %}&search={{ search }}{% endif %}{% if message_type %}&message_type={{ message_type }}{% endif %}{% if conversation.per_page != 50 %}&per_page={{ conversation.per_page }}{% endif %}">{{ conversation.total_pages }}</a>
+                    </li>
+                {% endif %}
+                
+                <!-- Next page -->
+                {% if conversation.page < conversation.total_pages %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ conversation.page + 1 }}{% if search %}&search={{ search }}{% endif %}{% if message_type %}&message_type={{ message_type }}{% endif %}{% if conversation.per_page != 50 %}&per_page={{ conversation.per_page }}{% endif %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="bi bi-chevron-right"></i>
+                        </span>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+{% endif %}
+{% endblock %}
