@@ -18,8 +18,17 @@ import re
 
 # Get the package directory
 PACKAGE_DIR = Path(__file__).parent
-STATIC_DIR = PACKAGE_DIR.parent / "static"
-TEMPLATES_DIR = PACKAGE_DIR.parent / "templates"
+
+# Try to find static and templates directories
+# First try relative to package (for installed package)
+STATIC_DIR = PACKAGE_DIR / "static"
+TEMPLATES_DIR = PACKAGE_DIR / "templates"
+
+# If not found, try relative to parent (for development)
+if not STATIC_DIR.exists():
+    STATIC_DIR = PACKAGE_DIR.parent / "static"
+if not TEMPLATES_DIR.exists():
+    TEMPLATES_DIR = PACKAGE_DIR.parent / "templates"
 
 # Create FastAPI app
 app = FastAPI(
