@@ -135,7 +135,7 @@ Use a different port: `claude-viewer --port 8080`
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+Apache 2.0 License - see [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
