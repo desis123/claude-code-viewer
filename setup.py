@@ -58,11 +58,10 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
-        "Topic :: Software Development :: Tools",
+        "Topic :: Software Development",
         "Topic :: Text Processing",
         "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
         "Environment :: Web Environment",
-        "Framework :: FastAPI",
     ],
     keywords="claude ai conversation viewer web interface fastapi",
     project_urls={

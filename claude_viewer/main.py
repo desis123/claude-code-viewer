@@ -87,6 +87,42 @@ class ConversationResponse(BaseModel):
 def render_markdown_with_code(text: str) -> str:
     """Render markdown with syntax highlighting for code blocks"""
     
+    # Check if content already contains diff HTML - if so, preserve it
+    if '<div class="diff-container">' in text:
+        # This is diff content that's already HTML - just process markdown around it
+        # but preserve the diff HTML blocks
+        
+        # Split content by diff containers to process markdown around them
+        diff_parts = text.split('<div class="diff-container">')
+        processed_parts = []
+        
+        for i, part in enumerate(diff_parts):
+            if i == 0:
+                # First part - before any diff, process as markdown
+                processed_parts.append(process_markdown_text(part))
+            else:
+                # This part starts with diff content
+                if '</div>' in part:
+                    # Find where diff content ends
+                    diff_end = part.rfind('</div>') + 6  # Include the closing tag
+                    diff_html = '<div class="diff-container">' + part[:diff_end]
+                    remaining_text = part[diff_end:]
+                    
+                    processed_parts.append(diff_html)
+                    if remaining_text.strip():
+                        processed_parts.append(process_markdown_text(remaining_text))
+                else:
+                    # Malformed diff HTML, process as regular markdown
+                    processed_parts.append(process_markdown_text('<div class="diff-container">' + part))
+        
+        return ''.join(processed_parts)
+    else:
+        # Regular content without diffs
+        return process_markdown_text(text)
+
+def process_markdown_text(text: str) -> str:
+    """Process text as markdown with syntax highlighting"""
+    
     # Custom renderer for code blocks
     def highlight_code_block(match):
         language = match.group(1) or 'text'

@@ -5,6 +5,29 @@ All notable changes to claude-code-viewer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-01-31
+
+### Added
+- **Diff Viewer**: Interactive diff visualization for Edit tool calls
+  - Side-by-side view showing old_string vs new_string changes
+  - Syntax-highlighted line-by-line diffs with + and - indicators
+  - Color-coded additions (green) and removals (red)
+  - Line numbers and context preservation
+  - Support for both tool_use and tool_result Edit operations
+  - Professional Git-style diff formatting
+- Enhanced HTML rendering to preserve diff content
+- Improved tool call visualization
+
+### Changed
+- Updated markdown renderer to handle pre-rendered HTML content
+- Enhanced structured content parsing for better tool display
+
+### Technical Details
+- Added difflib-based diff generation with HTML output
+- CSS styling for diff containers with dark/light theme support
+- Responsive design for mobile diff viewing
+- Automatic detection of Edit tool calls in JSONL content
+
 ## [1.0.0] - 2025-01-31
 
 ### Added
