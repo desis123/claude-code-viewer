@@ -4,7 +4,7 @@ Beautiful web interface for browsing your Claude Code conversation history with 
 
 ![Claude Code Viewer](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 
 ## ✨ Features
 
