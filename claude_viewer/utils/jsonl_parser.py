@@ -48,13 +48,23 @@ class JSONLParser:
                 # Count messages in file
                 message_count = self._count_messages(file_path)
                 
+                created_dt = datetime.fromtimestamp(file_stats.st_ctime)
+                modified_dt = datetime.fromtimestamp(file_stats.st_mtime)
+                
+                # Get first user message preview
+                first_user_message = self._get_first_user_message(file_path)
+                
                 sessions.append({
                     "id": filename.replace('.jsonl', ''),
                     "filename": filename,
                     "path": file_path,
                     "size": file_stats.st_size,
-                    "modified": datetime.fromtimestamp(file_stats.st_mtime).isoformat(),
-                    "message_count": message_count
+                    "created": created_dt.isoformat(),
+                    "modified": modified_dt.isoformat(),
+                    "created_display": self._format_relative_time(created_dt),
+                    "modified_display": self._format_relative_time(modified_dt),
+                    "message_count": message_count,
+                    "first_message_preview": first_user_message
                 })
         
         return sorted(sessions, key=lambda x: x["modified"], reverse=True)
@@ -302,6 +312,65 @@ class JSONLParser:
         except:
             return 0
     
+    def _get_first_user_message(self, file_path: str, max_length: int = 200) -> str:
+        """Get the first user message from a session for preview"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    try:
+                        data = json.loads(line.strip())
+                        parsed_message = self._parse_message(data, 1)
+                        
+                        # Check if this is a user message
+                        if (parsed_message.get("role") == "user" or 
+                            parsed_message.get("type") == "user" or
+                            data.get("type") == "user" or
+                            data.get("role") == "user"):
+                            
+                            content = str(parsed_message.get("content", ""))
+                            if content.strip():
+                                # Clean up the content - remove markdown, code blocks, etc.
+                                clean_content = self._clean_preview_content(content)
+                                
+                                # Truncate if too long
+                                if len(clean_content) > max_length:
+                                    return clean_content[:max_length].strip() + "..."
+                                return clean_content.strip()
+                    except json.JSONDecodeError:
+                        continue
+            
+            return "No user message found"
+        except Exception as e:
+            return "Error reading session"
+    
+    def _clean_preview_content(self, content: str) -> str:
+        """Clean content for preview display"""
+        import re
+        
+        # Remove code blocks
+        content = re.sub(r'```[\s\S]*?```', '[Code]', content)
+        
+        # Remove inline code
+        content = re.sub(r'`[^`]+`', '[Code]', content)
+        
+        # Remove markdown headers
+        content = re.sub(r'^#{1,6}\s+', '', content, flags=re.MULTILINE)
+        
+        # Remove markdown bold/italic
+        content = re.sub(r'\*\*([^*]+)\*\*', r'\1', content)
+        content = re.sub(r'\*([^*]+)\*', r'\1', content)
+        
+        # Remove markdown links
+        content = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', content)
+        
+        # Replace multiple whitespace with single space
+        content = re.sub(r'\s+', ' ', content)
+        
+        # Remove URLs
+        content = re.sub(r'https?://[^\s]+', '[URL]', content)
+        
+        return content
+    
     def _format_project_name(self, project_dir: str) -> str:
         """Convert project directory name to readable format"""
         # Convert -media-sukhon-usbd-python-projects-converters to a readable name
@@ -315,6 +384,34 @@ class JSONLParser:
             return clean_name
         
         return project_dir
+    
+    def _format_relative_time(self, dt: datetime) -> str:
+        """Format datetime as relative time string"""
+        now = datetime.now()
+        diff = now - dt
+        
+        if diff.days == 0:
+            if diff.seconds < 3600:  # Less than 1 hour
+                minutes = diff.seconds // 60
+                if minutes == 0:
+                    return "Just now"
+                return f"{minutes} min ago"
+            else:  # Less than 1 day
+                hours = diff.seconds // 3600
+                return f"{hours} hour{'s' if hours != 1 else ''} ago"
+        elif diff.days == 1:
+            return "Yesterday"
+        elif diff.days < 7:
+            return f"{diff.days} day{'s' if diff.days != 1 else ''} ago"
+        elif diff.days < 30:
+            weeks = diff.days // 7
+            return f"{weeks} week{'s' if weeks != 1 else ''} ago"
+        elif diff.days < 365:
+            months = diff.days // 30
+            return f"{months} month{'s' if months != 1 else ''} ago"
+        else:
+            years = diff.days // 365
+            return f"{years} year{'s' if years != 1 else ''} ago"
     
     def _generate_diff_html(self, old_string: str, new_string: str, file_path: str = "") -> str:
         """Generate HTML diff view from old_string and new_string"""
@@ -387,6 +484,118 @@ class JSONLParser:
         html_lines.append('</div>')  # diff-container
         
         return '\n'.join(html_lines)
+    
+    def search_sessions(self, project_name: str, query: str, max_results: int = 20) -> List[Dict]:
+        """Search for sessions containing specific content"""
+        project_path = os.path.join(self.claude_projects_path, project_name)
+        search_results = []
+        
+        if not os.path.exists(project_path):
+            return search_results
+        
+        query_lower = query.lower()
+        
+        # Get all sessions in the project
+        sessions = self.get_sessions(project_name)
+        
+        for session in sessions:
+            session_id = session["id"]
+            session_path = os.path.join(project_path, f"{session_id}.jsonl")
+            
+            try:
+                matches = []
+                match_count = 0
+                
+                with open(session_path, 'r', encoding='utf-8') as f:
+                    for line_num, line in enumerate(f, 1):
+                        try:
+                            data = json.loads(line.strip())
+                            parsed_message = self._parse_message(data, line_num)
+                            content = str(parsed_message.get("content", "")).lower()
+                            
+                            if query_lower in content:
+                                match_count += 1
+                                # Extract context around the match
+                                content_orig = str(parsed_message.get("content", ""))
+                                preview = self._extract_search_preview(content_orig, query, 200)
+                                
+                                matches.append({
+                                    "line": line_num,
+                                    "role": parsed_message.get("role", ""),
+                                    "preview": preview
+                                })
+                                
+                                # Stop after finding enough matches for preview
+                                if len(matches) >= 3:
+                                    break
+                                    
+                        except json.JSONDecodeError:
+                            continue
+                
+                if match_count > 0:
+                    # Create preview from first few matches
+                    preview_text = "<br>".join([f"<strong>{match['role'].title()}:</strong> {match['preview']}" 
+                                               for match in matches[:2]])
+                    
+                    search_results.append({
+                        "session_id": session_id,
+                        "match_count": match_count,
+                        "preview": preview_text,
+                        "modified": session["modified"],
+                        "message_count": session["message_count"]
+                    })
+                    
+                    # Stop if we have enough results
+                    if len(search_results) >= max_results:
+                        break
+                        
+            except Exception as e:
+                print(f"Error searching session {session_id}: {e}")
+                continue
+        
+        # Sort by modification date (newest first) and match count
+        search_results.sort(key=lambda x: (x["match_count"], x["modified"]), reverse=True)
+        
+        return search_results[:max_results]
+    
+    def _extract_search_preview(self, content: str, query: str, max_length: int = 200) -> str:
+        """Extract preview text around search query with highlighting"""
+        content_lower = content.lower()
+        query_lower = query.lower()
+        
+        # Find the position of the query in the content
+        pos = content_lower.find(query_lower)
+        if pos == -1:
+            return content[:max_length] + ("..." if len(content) > max_length else "")
+        
+        # Calculate preview start and end positions
+        start = max(0, pos - max_length // 2)
+        end = min(len(content), pos + len(query) + max_length // 2)
+        
+        preview = content[start:end]
+        
+        # Add ellipsis if truncated
+        if start > 0:
+            preview = "..." + preview
+        if end < len(content):
+            preview = preview + "..."
+        
+        # Highlight the search term (case-insensitive)
+        import re
+        pattern = re.compile(re.escape(query), re.IGNORECASE)
+        preview = pattern.sub(lambda m: f'<span class="search-highlight">{m.group()}</span>', preview)
+        
+        # Escape HTML except our highlight spans
+        preview = (preview.replace('&', '&amp;')
+                         .replace('<', '&lt;')
+                         .replace('>', '&gt;')
+                         .replace('"', '&quot;'))
+        
+        # Restore our highlight spans
+        preview = (preview.replace('&lt;span class="search-highlight"&gt;', '<span class="search-highlight">')
+                         .replace('&lt;/span&gt;', '</span>'))
+        
+        return preview
     
     def _escape_html(self, text: str) -> str:
         """Escape HTML characters"""

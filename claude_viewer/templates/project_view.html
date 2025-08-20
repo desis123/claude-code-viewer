@@ -26,21 +26,34 @@
                 <i class="bi bi-folder2-open me-2"></i>
                 {{ display_name }}
             </h2>
-            <div class="text-muted">
-                {{ sessions|length }} session{{ 's' if sessions|length != 1 else '' }}
+            <div class="d-flex align-items-center gap-3">
+                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#searchModal">
+                    <i class="bi bi-search me-2"></i>
+                    Search Sessions
+                </button>
+                <div class="text-muted">
+                    {{ sessions|length }} session{{ 's' if sessions|length != 1 else '' }}
+                </div>
             </div>
         </div>
 
         {% if sessions %}
             <div class="row">
                 {% for session in sessions %}
-                    <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="col-md-6 col-lg-6 mb-4">
                         <div class="card session-card h-100">
                             <div class="card-body">
                                 <h6 class="card-title">
                                     <i class="bi bi-chat-text me-2"></i>
                                     Session {{ session.id[:8] }}...
                                 </h6>
+                                
+                                <div class="session-preview mb-2">
+                                    <p class="text-muted small mb-2">
+                                        <i class="bi bi-person me-1"></i>
+                                        {{ session.first_message_preview }}
+                                    </p>
+                                </div>
                                 
                                 <div class="session-meta">
                                     <div class="session-stats">
@@ -58,10 +71,14 @@
                                         </div>
                                         <div class="stat-item">
                                             <i class="bi bi-clock"></i>
-                                            <span>
-                                                <script>
-                                                    document.write(window.formatRelativeTime("{{ session.modified }}"));
-                                                </script>
+                                            <span title="Modified: {{ session.modified }}">
+                                                Modified {{ session.modified_display }}
+                                            </span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <i class="bi bi-calendar-plus"></i>
+                                            <span title="Created: {{ session.created }}">
+                                                Created {{ session.created_display }}
                                             </span>
                                         </div>
                                     </div>
@@ -125,9 +142,7 @@
                                         </div>
                                     </div>
                                     <div class="text-muted small">
-                                        <script>
-                                            document.write(window.formatRelativeTime("{{ session.modified }}"));
-                                        </script>
+                                        {{ session.modified_display }}
                                     </div>
                                 </div>
                             </div>
@@ -188,5 +203,152 @@
     border-radius: 0.5rem;
     padding: 1rem;
 }
+
+.search-result-item {
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: white;
+}
+
+.search-result-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.search-highlight {
+    background: yellow;
+    font-weight: bold;
+}
+
+.session-preview {
+    border-left: 3px solid var(--primary-color);
+    padding-left: 0.75rem;
+    margin-left: 0.25rem;
+}
+
+.session-preview p {
+    font-style: italic;
+    line-height: 1.4;
+    margin-bottom: 0;
+}
 </style>
+
+<!-- Search Modal -->
+<div class="modal fade" id="searchModal" tabindex="-1" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="searchModalLabel">
+                    <i class="bi bi-search me-2"></i>
+                    Search Session Content
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="sessionSearchForm">
+                    <div class="mb-3">
+                        <label for="searchQuery" class="form-label">Search for messages containing:</label>
+                        <input type="text" class="form-control" id="searchQuery" placeholder="Enter search terms..." autocomplete="off">
+                        <div class="form-text">Search across all messages in this project's sessions</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search me-1"></i>
+                            Search
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="clearSearchResults()">
+                            <i class="bi bi-x-circle me-1"></i>
+                            Clear
+                        </button>
+                    </div>
+                </form>
+                
+                <div id="searchResults" class="mt-4" style="display: none;">
+                    <h6>Search Results:</h6>
+                    <div id="resultsContainer"></div>
+                </div>
+                
+                <div id="searchLoading" class="text-center mt-4" style="display: none;">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Searching...</span>
+                    </div>
+                    <div class="mt-2">Searching sessions...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Search functionality
+document.getElementById('sessionSearchForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const query = document.getElementById('searchQuery').value.trim();
+    if (query) {
+        searchSessions(query);
+    }
+});
+
+function searchSessions(query) {
+    const loading = document.getElementById('searchLoading');
+    const results = document.getElementById('searchResults');
+    const container = document.getElementById('resultsContainer');
+    
+    loading.style.display = 'block';
+    results.style.display = 'none';
+    
+    // API call to search sessions
+    fetch(`/api/search-sessions/{{ project_name }}?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(data => {
+            loading.style.display = 'none';
+            displaySearchResults(data, query);
+        })
+        .catch(error => {
+            loading.style.display = 'none';
+            console.error('Search error:', error);
+            alert('Search failed. Please try again.');
+        });
+}
+
+function displaySearchResults(data, query) {
+    const results = document.getElementById('searchResults');
+    const container = document.getElementById('resultsContainer');
+    
+    if (data.results && data.results.length > 0) {
+        container.innerHTML = data.results.map(result => `
+            <div class="search-result-item">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="mb-1">
+                        <i class="bi bi-chat-text me-1"></i>
+                        Session ${result.session_id.substring(0, 8)}...
+                    </h6>
+                    <small class="text-muted">${result.match_count} matches</small>
+                </div>
+                <div class="search-preview">
+                    ${result.preview}
+                </div>
+                <div class="mt-2">
+                    <a href="/conversation/{{ project_name }}/${result.session_id}?search=${encodeURIComponent(query)}" 
+                       class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye me-1"></i>
+                        View Session
+                    </a>
+                </div>
+            </div>
+        `).join('');
+        results.style.display = 'block';
+    } else {
+        container.innerHTML = '<div class="text-center text-muted py-3">No results found for your search.</div>';
+        results.style.display = 'block';
+    }
+}
+
+function clearSearchResults() {
+    document.getElementById('searchQuery').value = '';
+    document.getElementById('searchResults').style.display = 'none';
+    document.getElementById('resultsContainer').innerHTML = '';
+}
+</script>
 {% endblock %}

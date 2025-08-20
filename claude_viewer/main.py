@@ -63,8 +63,12 @@ class Session(BaseModel):
     filename: str
     path: str
     size: int
+    created: str
     modified: str
+    created_display: str
+    modified_display: str
     message_count: int
+    first_message_preview: str
 
 class Message(BaseModel):
     line_number: int
@@ -249,6 +253,23 @@ async def get_conversation(
     )
     
     return ConversationResponse(**conversation)
+
+@app.get("/api/search-sessions/{project_name}")
+async def search_sessions(
+    project_name: str,
+    q: str = Query(..., min_length=1),
+    max_results: int = Query(20, le=100)
+):
+    """Search for sessions containing specific content"""
+    parser = get_parser()
+    results = parser.search_sessions(project_name, q, max_results)
+    
+    return {
+        "query": q,
+        "project": project_name,
+        "results": results,
+        "total_results": len(results)
+    }
 
 @app.get("/health")
 async def health_check():
